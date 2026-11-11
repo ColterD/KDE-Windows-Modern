@@ -1,14 +1,14 @@
 [kcminputrc][Mouse]
-cursorTheme=Windows-modern-dark-cursors
+cursorTheme=Win11OS-moyash
 
 [kdeglobals][General]
 ColorScheme=WindowsModernDark
 
 [kdeglobals][Icons]
-Theme=windows-modern
+Theme=ElevenTwilight
 
 [kdeglobals][KDE]
-widgetStyle=kvantum-dark
+widgetStyle=kvantum
 
 [kwinrc][DesktopSwitcher]
 LayoutName=org.kde.breeze.desktop
