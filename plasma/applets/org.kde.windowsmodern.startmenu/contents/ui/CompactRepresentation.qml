@@ -34,6 +34,12 @@ Item {
     Layout.minimumHeight: vertical ? width : -1
     Layout.preferredWidth: vertical ? -1 : height
     Layout.preferredHeight: vertical ? width : -1
+    // Expose the button to screen readers and accessibility tools: without
+    // these the Start button is absent from the accessibility tree.
+    Accessible.role: Accessible.Button
+    Accessible.name: i18nc("@action:button the Start menu button", "Start")
+    Accessible.description: i18nc("@info:tooltip", "Open the Start menu")
+    Accessible.onPressAction: dashWindow.visible = !dashWindow.visible
 
     Kirigami.Icon {
         id: buttonIcon

@@ -7,6 +7,7 @@
 #  In batch mode (WM_BATCH=1): installs files only — the parent 'all'
 #  driver performs the single apply at the end.
 # ───────────────────────────────────────────────────────────────────
+# shellcheck source=scripts/install-lib.sh
 source "$(dirname "$0")/install-lib.sh"
 
 info "Installing global themes (look-and-feel)..."
@@ -19,6 +20,10 @@ cp -r "$SRC_DIR/plasma/look-and-feel/org.kde.windowsmodern.dark" "$LOOKFEEL_DIR/
 step "Light theme"
 rm -rf "$LOOKFEEL_DIR/org.kde.windowsmodern.light"
 cp -r "$SRC_DIR/plasma/look-and-feel/org.kde.windowsmodern.light" "$LOOKFEEL_DIR/"
+
+# Both global themes name the Win10OS cursors: make sure they exist, or
+# applying a theme would leave the cursor on a fallback.
+install_cursor_theme
 
 info "Global themes installed."
 

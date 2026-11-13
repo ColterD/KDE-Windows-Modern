@@ -2,6 +2,7 @@
 # ───────────────────────────────────────────────────────────────────
 #  install-themes.sh — Aurorae, color-schemes, Kvantum, Plasma, wallpapers
 # ───────────────────────────────────────────────────────────────────
+# shellcheck source=scripts/install-lib.sh
 source "$(dirname "$0")/install-lib.sh"
 
 info "Installing themes..."
@@ -47,6 +48,9 @@ ensure_dir "$PLASMA_DIR"
 rm -rf "$PLASMA_DIR/Windows-modern"*
 cp -r "$SRC_DIR/plasma/desktoptheme/"* "$PLASMA_DIR/"
 
+# The global themes name this cursor theme.
+install_cursor_theme
+
 step "Wallpapers"
 ensure_dir "$WALLPAPER_DIR"
 rm -rf "$WALLPAPER_DIR/Windows-modern"*
@@ -60,6 +64,6 @@ info "Themes installed."
 if ! is_batch && [ "$UID" -ne 0 ]; then
     step "Applying Kvantum engine & desktop theme"
     apply_kvantum_engine dark
-    command -v plasma-apply-desktoptheme &>/dev/null && plasma-apply-desktoptheme Windows-modern 2>/dev/null || true
+    if command -v plasma-apply-desktoptheme &>/dev/null; then plasma-apply-desktoptheme Windows-modern-dark 2>/dev/null || true; fi
     bash "$SRC_DIR/scripts/set-wallpaper.sh" || true
 fi

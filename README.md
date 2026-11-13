@@ -39,6 +39,7 @@ Windows Modern includes matching window decorations, widget styles, color scheme
 | **Global themes** | `plasma/look-and-feel/` | `org.kde.windowsmodern.dark` and `org.kde.windowsmodern.light`. |
 | **Panel layout template** | `plasma/layout-templates/` | A Win11-style bottom panel layout you can add from the desktop context menu. |
 | **Custom applets** | `plasma/applets/` | Show Desktop, Start Menu, Digital Clock, C++ System Tray, and C++ Icon Tasks (icons-only taskbar). |
+| **Alt+Tab switcher** | `plasma/windowswitcher/` | Windows 11-style window switcher: aspect-correct previews in centered rows, follows the dark/light colour scheme. |
 | **Session lock screen** | `plasma/shells/org.kde.windowsmodern.lockscreen/` | Win11-style lock screen for Meta+L (kscreenlocker). Installed as a complete overlay of the default desktop shell. |
 | **Boot greeter** | `plasma/look-and-feel/.../contents/lockscreen/` + `third_party/plasma-login-manager/` | Patched Plasma Login Manager build that loads a Win11 login screen. Opt-in (system install needs root). |
 | **Icon pack** | `icons/windows-modern/` | Curated Windows-11-style icon theme (~25,000 SVGs). |
@@ -51,6 +52,9 @@ Windows Modern includes matching window decorations, widget styles, color scheme
 
 - **KDE Plasma 6**
 - **Kvantum** engine installed (`kvantum` package on most distros)
+- For the **System Tray and Icon Tasks applets**: nothing extra when you
+  install from a release on a supported Fedora (prebuilt plugins are
+  downloaded); otherwise
 - For the **System Tray applet**: a C++ compiler and KDE/Plasma development packages (see [System Tray](#system-tray) below)
 - For the **Icon Tasks applet**: a C++ compiler and a slightly different KDE/Plasma dev set (see [Icon Tasks](#icon-tasks) below)
 - For the **Digital Clock applet**: no extra deps (pure QML).
@@ -61,16 +65,29 @@ Windows Modern includes matching window decorations, widget styles, color scheme
 
 ## Installation
 
-### Quick start
+### Quick start (also: setting up a new machine)
 
 ```bash
+git clone https://github.com/Jeysef/KDE-Windows-Modern && cd KDE-Windows-Modern
 ./install.sh
 ```
 
 Opens a menu (default choice = **Everything**). Pick **1** and you'll be
-asked only one question: **Light or Dark?** Everything else — themes,
-icons, applets, layout, KWin borders, per-monitor Alt+Tab, Application
-Style, wallpaper, panel layout reset — is applied automatically.
+asked only one question: **Light or Dark?** Everything else is set up
+for you, in this order:
+
+1. **Dependencies:** Kvantum, Flatpak, and the build tools for the two
+   C++ applets (only what's missing; one password prompt).
+2. **Look:** themes, icons, applets, layout, KWin borders, per-monitor
+   Alt+Tab, Application Style, wallpaper, panel layout reset.
+3. **Behaviour:** Windows keyboard shortcuts, Snap Layouts, the everyday
+   apps (Haruna, KWrite, Mission Center) with Snipping Tool–style
+   screenshots, and Windows fonts (Segoe UI or Selawik, Cascadia Mono).
+
+On a fresh Plasma install this one run is all you need. Run it from
+your normal account (it asks for the password itself when needed) and
+inside a Plasma session, since shortcuts are applied to the running
+session.
 
 ### Install everything non-interactively
 
@@ -80,10 +97,11 @@ Style, wallpaper, panel layout reset — is applied automatically.
 ./install.sh all --light      # no prompts, Light
 ```
 
-`all` installs in three phases: **atomic pieces** (themes, icons,
-applets, session lock) → **compose** (layout template, look-and-feel)
-→ **apply once** (KWin tweaks, global theme with layout reset, Kvantum
-engine, single Plasma Shell restart).
+`all` installs in four phases: **atomic pieces** (dependencies, themes,
+icons, applets, session lock) → **compose** (layout template,
+look-and-feel) → **apply once** (KWin tweaks, global theme with layout
+reset, Kvantum engine, single Plasma Shell restart) → **behaviour**
+(shortcuts, apps).
 
 > `all` includes the session lock screen (Meta+L). The boot greeter is
 > **opt-in** (it replaces the system login manager) — use
@@ -106,6 +124,11 @@ needed (Plasma Shell restarts automatically where required).
 ./install.sh digitalclock # Digital Clock (+ restarts shell)
 ./install.sh applets      # All five applets (single restart)
 ./install.sh sessionlock  # Session lock screen (Meta+L)
+./install.sh alttab       # Windows 11-style Alt+Tab switcher
+./install.sh shortcuts    # Windows keyboard shortcuts (see below)
+./install.sh apps         # Haruna, KWrite, Mission Center, Snipping Tool behaviour
+./install.sh fonts        # Segoe UI or Selawik, Cascadia Mono
+./install.sh deps         # Dependencies only
 ./install.sh greeter      # Boot greeter (PLM build + system install)
 ```
 
@@ -123,6 +146,60 @@ That's it — global theme, colors, icons, Application Style (Kvantum),
 wallpaper, and panel layout are all applied for you.
 
 ---
+
+## Windows keyboard shortcuts
+
+`./install.sh shortcuts` makes the Windows keys do what your hands
+expect. KDE already matches Windows for Win+E, Win+I, Win+L, Win+D,
+Win+V, Win+., Win+P, Win+Shift+S, Win+Left/Right, Win+Ctrl+Left/Right,
+Win+Space and Win+1…9; these are changed:
+
+| Keys | Now does (as on Windows) | KDE's default was |
+|---|---|---|
+| Win+Up / Win+Down | Maximize · restore · minimize; on a snapped window, quarter snap | Snap to top/bottom half |
+| Win+Tab | Task View (Overview) | Cycle windows |
+| Win+R | Run (KRunner) | Record screen region |
+| Win+A / Win+N | Quick Settings / notifications | Next Activity / – |
+| Win+M · Win+Home | Minimize all (again: restore) · minimize all others | – |
+| Win+PrtSc · Alt+PrtSc | Save a full screenshot silently · capture the active window | Active window · – |
+| Ctrl+Shift+Esc | Mission Center (with `apps`) | System Monitor (if set) |
+
+The same component adds **Snap Layouts**: drag a window towards the top
+edge and a bar of layouts (halves, thirds, quarters…) appears at the top
+centre; drop the window on a cell to snap it there. It also moves the
+volume/brightness pop-up to just above the taskbar, where Windows 11 shows it.
+
+Your previous keys are backed up to
+`~/.local/share/windows-modern/backup/` and `./uninstall.sh shortcuts`
+puts them back. Win+Up/Down come from a small KWin script
+(`plasma/kwinscripts/org.kde.windowsmodern.snapkeys`).
+
+## Apps
+
+`./install.sh apps` sets up the everyday tools a Windows user reaches for:
+
+| Windows | Here | Notes |
+|---|---|---|
+| Media Player | **Haruna** | Default for video files; Qt, so it follows the theme. |
+| Notepad | **KWrite** | Installed; your default text editor is left alone. |
+| Task Manager | **Mission Center** | From Flathub (per user), on Ctrl+Shift+Esc. GNOME-styled. |
+| Snipping Tool | **Spectacle** | PrtSc / Win+Shift+S: select a region; on release it is copied and saved to Pictures/Screenshots. |
+| File Explorer | **Dolphin** | Up button next to Back/Forward (only if you have no toolbar layout of your own). Win+E opens it. |
+
+`./uninstall.sh apps` restores your previous defaults; the apps stay
+installed.
+
+## Fonts
+
+`./install.sh fonts` uses Windows 11's fonts where it can:
+
+- **UI:** Segoe UI if you have it (it can't be shipped). Otherwise
+  Microsoft's open **Selawik** (same metrics) is downloaded and used
+  wherever "Segoe UI" is asked for.
+- **Monospace:** **Cascadia Mono**, from your distro.
+
+Your fonts change only if they are still distro defaults;
+`./uninstall.sh fonts` puts the previous ones back.
 
 ## Applets
 
@@ -204,7 +281,7 @@ Detailed build instructions: [`plasma/applets/org.kde.windowsmodern.systemtray/B
 
 ### Icon Tasks
 
-A C++ fork of the upstream icons-only task manager (`org.kde.plasma.taskmanager` from plasma-desktop), rebranded as `org.kde.windowsmodern.icontasks` and restyled with Windows 11 tooltip visuals. The C++ backend is preserved unchanged (jump lists, places, recent docs, app categories, smart launcher badges, audio stream matching); only the QML UI is restyled. This is the taskbar used by the Windows Modern panel layout template.
+A C++ fork of the upstream icons-only task manager (`org.kde.plasma.taskmanager` from plasma-desktop), restyled with Windows 11 tooltip visuals. It registers under the stock plugin ID `org.kde.plasma.icontasks`, so it replaces the icons-only task manager transparently; uninstalling restores the stock one. The C++ backend is preserved unchanged (jump lists, places, recent docs, app categories, smart launcher badges, audio stream matching); only the QML UI is restyled. This is the taskbar used by the Windows Modern panel layout template.
 
 Win11 refinements over upstream:
 
@@ -272,6 +349,29 @@ Detailed build instructions: [`plasma/applets/org.kde.windowsmodern.icontasks/BU
 
 ---
 
+## Alt+Tab
+
+A Windows 11-style window switcher for KWin. Every preview has the same
+height and keeps its window's shape, cards wrap into centered rows, and the
+selected window gets a rounded focus ring. Hover a card for its close button;
+click to switch; arrow keys move across and between rows. It follows the
+active colour scheme, so it works in both variants.
+
+```bash
+./install.sh alttab       # install + select (included in 'all')
+./uninstall.sh alttab     # back to KWin's default switcher
+```
+
+KWin caches the switcher once it has been shown, so after **updating** it,
+log out and back in to see the new version.
+
+Source: `plasma/windowswitcher/org.kde.windowsmodern.alttab/`. Preview and
+test it without KWin: `tests/windowswitcher/preview.sh` and
+`tests/windowswitcher/run-tests.sh`; test it inside your running KWin with
+`tests/windowswitcher/e2e.py`.
+
+---
+
 ## Lock screen and boot greeter
 
 Two separate components cover the two places a Windows-style lock/login look
@@ -311,12 +411,19 @@ included in `install.sh all`**.
 ./install.sh greeter
 third_party/plasma-login-manager/build-user/bin/plasma-login-greeter --test
 
-# 2. Install as your actual boot greeter (needs root, typed confirmation):
+# 2. Install as your actual boot greeter (needs root, typed confirmation).
+#    Run it with sudo from your normal account: the build runs as you, and
+#    only the final copy into /usr runs as root.
 sudo bash scripts/install-greeter-live.sh
 
-# Update the PLM submodule to a new upstream version:
-./scripts/update-plm.sh Plasma/6.7
+# Maintainers: move the PLM submodule to a new upstream release
+# (release branches Plasma/6.N or tags vX.Y.Z only), then commit the pointer:
+./scripts/update-plm.sh Plasma/6.8
 ```
+
+Local edits inside `third_party/plasma-login-manager/` are never discarded:
+the build stashes them (`git -C third_party/plasma-login-manager stash pop`
+restores them).
 
 Keep a TTY (Ctrl+Alt+F3) open before the live install. Revert:
 
@@ -352,22 +459,40 @@ Full instructions: [`app-decorations/firefox/README.md`](app-decorations/firefox
 ./uninstall.sh all           # Remove everything
 ./uninstall.sh themes        # Remove theme components only
 ./uninstall.sh icons         # Remove icon pack
+./uninstall.sh lookfeel      # Remove global themes
+./uninstall.sh layout        # Remove panel layout template
+./uninstall.sh showdesk      # Remove Show Desktop applet
+./uninstall.sh startmenu     # Remove Start Menu applet
 ./uninstall.sh systray       # Remove system tray plugin
+./uninstall.sh icontasks     # Remove Icon Tasks, restore the stock icons-only task manager
 ./uninstall.sh digitalclock  # Remove Digital Clock applet
 ./uninstall.sh sessionlock   # Restore Breeze lock screen (Meta+L)
+./uninstall.sh alttab        # Restore KWin's default Alt+Tab switcher
+./uninstall.sh shortcuts     # Put your previous keyboard shortcuts back
+./uninstall.sh apps          # Restore previous app defaults (apps stay installed)
+./uninstall.sh fonts         # Restore previous UI and monospace fonts
 ./uninstall.sh greeter       # Remove user greeter theme + revert patches
 ./uninstall.sh greetersystem # Restore system greeter binary (needs sudo)
 ```
 
-Run a project health check:
+Run a health check:
 
 ```bash
-./verify-all.sh
+./verify-all.sh              # Repository checks (also the release gate and CI)
+./verify-all.sh --installed  # ...plus the installed System Tray and Icon Tasks plugins
 ```
 
 ---
 
 ## Development and contributing
+
+See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the development workflow,
+the checks CI runs, and commit conventions. In short:
+
+```bash
+./verify-all.sh            # repository health check (what CI and release.sh run)
+./scripts/ci-build.sh      # compile both C++ applets and check they link
+```
 
 ### Committing icon pack changes
 
@@ -399,6 +524,9 @@ Walks you through each desktop state (dark/light overview, start menu, system tr
 
 | Document | Description |
 |----------|-------------|
+| [`PRODUCT.md`](PRODUCT.md) | What the project is for, what's in scope, what's deliberately left out, and the roadmap. |
+| [`CONTRIBUTING.md`](CONTRIBUTING.md) | Development workflow, checks, and commit conventions. |
+| [`CHANGELOG.md`](CHANGELOG.md) | Notable changes per release. |
 | [`docs/STYLE.md`](docs/STYLE.md) | Complete visual style specification: palette, desktop theme, panel layout, applet specs, and repository structure. |
 | [`docs/STARTMENU_PLAN.md`](docs/STARTMENU_PLAN.md) | Implementation plan for the Start Menu applet. |
 | [`docs/SYSTEMTRAY_ARCHITECTURE.md`](docs/SYSTEMTRAY_ARCHITECTURE.md) | Architecture and history of the custom system tray. |
@@ -428,12 +556,19 @@ A stale local copy in `~/.local/lib64/qt6/plugins/plasma/applets/` or `~/.local/
 
 ### Icon Tasks taskbar is unstyled or thumbnails don't render
 
-Same root causes as the System Tray: a conflicting KPackage was installed instead of the compiled `.so`, or a stale local `.so` (`org.kde.windowsmodern.icontasks.so`) is shadowing the system plugin. Re-run the installer, which prunes both:
+Same root causes as the System Tray: a conflicting KPackage was installed instead of the compiled `.so`, or a stale local `.so` (`org.kde.plasma.icontasks.so`, or the legacy `org.kde.windowsmodern.icontasks.so`) is shadowing the system plugin. Re-run the installer, which prunes both:
 
 ```bash
 ./install.sh icontasks
 systemctl --user restart plasma-plasmashell.service
+bash plasma/applets/org.kde.windowsmodern.icontasks/verify.sh   # diagnose
 ```
+
+After a Plasma upgrade the plugin must be rebuilt (it links against
+Plasma's libraries); re-running `./install.sh icontasks` does that. A distro
+update of `plasma-desktop` can also put the stock task manager package back
+next to the fork — `verify.sh` reports this, and re-running the installer
+fixes it.
 
 ### Window borders look wrong after install
 
@@ -442,7 +577,7 @@ The installer sets KWin borders to `Tiny`. If you changed it manually, re-run:
 ```bash
 kwriteconfig6 --file kwinrc --group "org.kde.kdecoration2" --key "BorderSize" "Tiny"
 kwriteconfig6 --file kwinrc --group "org.kde.kdecoration2" --key "BorderSizeAuto" "false"
-dbus-send --session --dest=org.kde.KWin /KWin org.kde.KWin.reconfigure
+dbus-send --session --type=method_call --dest=org.kde.KWin /KWin org.kde.KWin.reconfigure
 ```
 
 ### Alt+Tab not limited to the current monitor
@@ -452,7 +587,7 @@ manually, re-run:
 
 ```bash
 kwriteconfig6 --file kwinrc --group "TabBox" --key "MultiScreenMode" "1"
-dbus-send --session --dest=org.kde.KWin /KWin org.kde.KWin.reconfigure
+dbus-send --session --type=method_call --dest=org.kde.KWin /KWin org.kde.KWin.reconfigure
 ```
 
 Values: `0` = all monitors, `1` = current monitor only, `2` = all except current.

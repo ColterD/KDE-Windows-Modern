@@ -37,10 +37,18 @@ for arg in "$@"; do
     esac
 done
 
+META_VERSION="$(python3 -c "import json;print(json.load(open('plasma/look-and-feel/org.kde.windowsmodern.dark/metadata.json'))['KPlugin']['Version'])" 2>/dev/null || true)"
 if [[ -z "$VERSION" ]]; then
-    VERSION="$(python3 -c "import json;print(json.load(open('plasma/look-and-feel/org.kde.windowsmodern.dark/metadata.json'))['KPlugin']['Version'])" 2>/dev/null || true)"
+    VERSION="$META_VERSION"
 fi
 [[ -z "$VERSION" ]] && { err "Could not determine version."; exit 1; }
+# Artifact names come from the metadata, so a tag that disagrees would ship
+# zips labelled with a different version than the release.
+if [[ "$VERSION" != "$META_VERSION" ]]; then
+    err "Requested version $VERSION does not match metadata version ${META_VERSION:-<none>}."
+    err "Bump the Version fields in the metadata files first (see docs/RELEASE.md)."
+    exit 1
+fi
 TAG="v${VERSION}"
 info "Release version: ${TAG}"
 
@@ -83,7 +91,7 @@ step "verify-all.sh passed"
 # ── 2. Package artifacts ───────────────────────────────────────────
 info "Packaging artifacts..."
 ./scripts/package.sh >/dev/null
-step "artifacts built in dist/"
+step "$(wc -l < dist/.manifest) artifacts built in dist/"
 
 # ── 3. Dry-run stop ────────────────────────────────────────────────
 if [[ "$DRY_RUN" -eq 1 ]]; then
@@ -129,26 +137,33 @@ step "tag pushed"
 
 # ── 7. Create GitHub release (idempotent) ─────────────────────────
 info "Creating GitHub release..."
-NOTES="$(cat <<EOF
-## Windows Modern for KDE Plasma 6 — ${TAG}
+# This version's section of CHANGELOG.md, without its heading.
+CHANGES="$(awk -v v="$VERSION" '
+    index($0, "## [" v "]") == 1 { on = 1; next }
+    on && index($0, "## [") == 1 { exit }
+    on { print }' CHANGELOG.md)"
 
-A complete Windows 11-inspired visual transformation for KDE Plasma 6.
-Includes window decorations, widget style, color schemes, Plasma desktop
-themes, global themes, an icon pack, custom applets, a panel layout
-template, and wallpapers — in dark and light variants.
+NOTES="$(cat <<EOF
+Windows 11's look and feel for KDE Plasma 6, with a few Windows 10
+touches: Start menu, taskbar, system tray with Quick Settings, window
+decorations, themes, icons, cursors, shortcuts and Snap Layouts.
 
 ### Install
 
-Download and extract the full bundle \`.zip\`, then:
+Download and extract the full bundle \`.zip\` (or clone the \`${TAG}\` tag), then:
 
 \`\`\`bash
-./install.sh all
+./install.sh        # menu; Enter installs everything
 \`\`\`
 
-See the README for component-by-component options and the C++ System Tray
-build instructions.
+On the Fedora versions CI builds for, the System Tray and taskbar plugins
+come prebuilt (attached below, checksum-verified), so no compiler is
+needed; elsewhere they are built from source. See the README for single
+components.
 
-**Requires KDE Plasma 6 and Kvantum.**
+### Changes
+
+${CHANGES:-See CHANGELOG.md.}
 EOF
 )"
 
@@ -161,12 +176,18 @@ else
         --notes "$NOTES"
 fi
 
-# Attach all built artifacts (overwrite if re-running).
-info "Uploading artifacts..."
+# Attach exactly the artifacts package.sh built in step 2 — never a glob,
+# so stale zips left in dist/ cannot ship under a new tag.
+if [[ ! -s dist/.manifest ]]; then
+    err "dist/.manifest missing or empty — packaging did not run."
+    exit 1
+fi
+mapfile -t ARTIFACTS < dist/.manifest
+info "Uploading ${#ARTIFACTS[@]} artifact(s)..."
 gh release upload "$TAG" \
     --repo "$REPO_SLUG" \
     --clobber \
-    dist/*.zip
+    "${ARTIFACTS[@]}"
 
 echo ""
 info "Release ${TAG} published: https://github.com/${REPO_SLUG}/releases/tag/${TAG}"

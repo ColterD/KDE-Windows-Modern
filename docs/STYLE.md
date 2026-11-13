@@ -108,23 +108,32 @@ The `contents/layout.js` creates:
   1. **Left expanding spacer** — `org.kde.plasma.panelspacer`. Pushes
      the Start + tasks group to the horizontal center of the panel,
      matching Win11's centered taskbar.
-  2. **Start** — `org.kde.plasma.kickoff` (icon `start-here`). A custom
-     Windows-logo icon is provided, with both a scalable version and a
-     fixed `48/apps/start-here.svg` that draws the logo at 30px so it
-     matches the app-icon size on a 48px panel.
+  2. **Start** — `org.kde.windowsmodern.startmenu` (falls back to
+     `org.kde.plasma.kickoff`; icon `start-here`). A custom Windows-logo
+     icon is provided, with both a scalable version and a fixed
+     `48/apps/start-here.svg` that draws the logo at 30px so it matches
+     the app-icon size on a 48px panel.
   3. **Icon-only task manager** — `org.kde.plasma.icontasks` (grouped
      by app, sits immediately to the right of Start in the centered
      group)
   4. **Right expanding spacer** — `org.kde.plasma.panelspacer`. Separates
      the centered Start + tasks group from the system tray on the far
      right.
-  5. **System tray** — `org.kde.windowsmodern.systemtray`
+  5. **System tray** — `org.kde.windowsmodern.systemtray`. The overflow
+     chevron (`^`) sits *right* of the tray icons, next to the clock (a
+     deliberate choice; Windows 11 puts it on the left).
+     The tray always ends with input language, network, volume, battery,
+     in that order, as on Windows 11 (`s_windowsTail` in
+     `windowstray.h`; checked by `tests/panel/e2e.py tray-order`). Only
+     those four, notifications and the camera-in-use indicator show without
+     being pinned; every other icon waits behind the chevron until it needs
+     attention or is set to "Always shown" (`calculateEffectiveStatus` in
+     `systemtraymodel.cpp`).
   6. **Digital clock** — `org.kde.windowsmodern.digitalclock` (with a
       fallback to `org.kde.plasma.digitalclock`). Stacked date below the
       time, no seconds by default, `use24hFormat=1` so it follows the
-      user's locale. The compact view uses `compactPadding` (default 0.18)
-      so the text height matches the icon-task icon area instead of
-      spanning the full panel. The expanded popup is a dark rounded
+      user's locale. Time and date use the same, normal UI font size, as on
+      Windows; the text shrinks only if the panel is too thin for it. The expanded popup is a dark rounded
       Windows 11 calendar with month navigation, current-day blue circle,
       hover highlights, and optional KDE calendar event dots.
   7. **Show Desktop** — `org.kde.windowsmodern.showdesktop`, a custom
@@ -151,8 +160,9 @@ the essentials for the Win11 look:
 - **Thin sliver** — `Layout.maximumWidth` is driven by the `size`
   config key (default 6px), overriding the upstream 22px floor.
 - **No icon** — the `Kirigami.Icon` is only visible in edit mode.
-- **Minimize-all** — uses `MinimizeAllController` (toggle minimize on
-  all windows) rather than peek.
+- **Show desktop** — `ShowDesktopController` toggles KWin's show-desktop
+  mode (`KWindowSystem.showingDesktop`), the same state as Win+D: click to
+  show the desktop, click again to restore the windows.
 - **Win11 hover indicator** — invisible by default. On hover, a 1px
   vertical line (50% of panel height, centered) fades in at 50% text
   color alpha. No background fill, no separator line — matches Win11
@@ -213,10 +223,12 @@ numbers, and calendar plugins.
 
 Win11 refinements over upstream:
 
-- **Padded compact clock** — `compactPadding` (default 0.18) caps the
-  text height so the clock visually matches the icon-task icon area
-  instead of spanning the full panel height. Works with both Automatic
-  and Manual text display modes.
+- **Windows-sized compact clock** — every line (time, date, time zone)
+  uses the same font size: the system UI font in Automatic mode, the
+  chosen size in Manual mode. It never grows with the panel; it shrinks
+  only when the lines would not fit (2 px margin). The default date is
+  the locale's short date with a four-digit year (`11.11.2026` in
+  cs_CZ), via `shortDateFullYear` in `code/dateformat.js`.
 - **Theme-aware rounded popup** — the popup fill, border and shadow are
   supplied by the Plasma theme's `dialogs/background.svg`
   (`#2C2C2C`/`#F9F9F9` fill with `#3F3F3F`/`#E5E5E5` border), 8px corner
@@ -243,8 +255,7 @@ Win11 refinements over upstream:
 Removed interactions: pin on middle-click, calendar launch,
 clipboard time copy, and wheel-to-switch-timezone.
 
-Config keys are the same as upstream plus `compactPadding` (double)
-and `expandedWidth` (int). Build and install with
+Config keys are the same as upstream plus `expandedWidth` (int). Build and install with
 `./install.sh digitalclock`.
 
 #### System Tray applet (`plasma/applets/org.kde.windowsmodern.systemtray/`)
@@ -258,11 +269,18 @@ KPackage must not be installed (it causes the dark-rectangle popup bug).
 See `docs/SYSTEMTRAY_ARCHITECTURE.md` and
 `plasma/applets/org.kde.windowsmodern.systemtray/BUILD.md`.
 
+Tray icons stay separate, Windows 10 style: each opens its own page
+(network, volume, battery…). The chevron opens the Quick Settings flyout
+(a Windows 11/10 hybrid):
+hidden tray icons as a 3-column tile grid, then the toggles and sliders.
+The flyout fits its content (no fixed height). The tile grid shows up to
+three rows, then scrolls; its edges and 6 px gaps match the toggle grid
+exactly (14 px margins at 100% scale).
+
 #### Icon Tasks applet (`plasma/applets/org.kde.windowsmodern.icontasks/`)
 
 A C++ fork of the upstream `org.kde.plasma.taskmanager` (from
-plasma-desktop), rebranded as `org.kde.windowsmodern.icontasks` and
-restyled with Windows 11 tooltip visuals. The C++ backend is preserved
+plasma-desktop), restyled with Windows 11 tooltip visuals. The C++ backend is preserved
 unchanged (jump lists, places, recent docs, app categories, smart
 launcher badges, audio stream matching). The QML UI is forked from
 upstream with minimal Win11 refinements:
@@ -286,8 +304,13 @@ not be installed. Build and install with `./dev.sh` or
 `./install.sh icontasks`. See
 `plasma/applets/org.kde.windowsmodern.icontasks/BUILD.md`.
 
-The panel layout template and look-and-feel layout scripts use
-`org.kde.windowsmodern.icontasks` instead of `org.kde.plasma.icontasks`.
+The fork registers under the stock plugin ID `org.kde.plasma.icontasks`
+(the source directory is still `org.kde.windowsmodern.icontasks/`). The
+panel layout template and look-and-feel layout scripts therefore add
+`org.kde.plasma.icontasks`, which loads the fork when it is installed and the
+stock icons-only task manager otherwise. Because that ID belongs to a
+distro-owned package, `dev.sh` moves the stock KPackage aside to
+`/var/lib/windows-modern/backup/` and `uninstall.sh` restores it.
 
 #### Popups / tooltips
 
@@ -344,31 +367,26 @@ inherits the themed look.
 
 #### Switch / toggle (`widgets/switch.svg`)
 
-Renders the on/off toggle switches used in Plasma applet popups
-(e.g. network, Bluetooth, do-not-disturb). The original asset made
-the off-state track and thumb the same color as the popup
-background, so the switch was invisible against popups.
+The on/off switches in Plasma popups (Wi-Fi, Bluetooth, airplane mode…),
+styled like Windows 11. Both themes' files are **generated** by
+`scripts/gen-switch-svg.py`; edit the script, then run
+`tests/theme/check-switch.py`, which renders the real Plasma switch and
+fails if anything but accent shows around the on-pill.
 
-| Element | Class | Notes |
+| State | Track | Knob |
 |---|---|---|
-| Off track fill | none (transparent) | Pill outline only |
-| Off track border | `ColorScheme-Text` | 1 px stroked outline, `stroke-linecap=round` for seamless joints |
-| On track fill | `ColorScheme-Highlight` | Solid accent from the color scheme |
-| On track border | none | Filled pill, no visible stroke |
-| Knob (both states) | `ColorScheme-Text` | Same color as text — visible on both transparent off-track and accent on-track |
-| Knob border | none | Flat, borderless |
-| Focus/hover ring | `ColorScheme-Highlight` | 12 px accent ring around the 10 px knob |
+| Off | 36×20 1 px outline, `ColorScheme-Text` at 55 % (dark) / 45 % (light) | 11 px, `ColorScheme-Text` at 79 % / 62 % |
+| On | 37×20 solid `ColorScheme-Highlight` pill | 12 px, `ColorScheme-Background` |
+| Hover / pressed | unchanged | 12 px accent ring around a 10 px `ColorScheme-Background` dot |
 
-- Both states share the same outer track size (38 × 16 px hint) and knob.
-- The off track is a **transparent pill outline** stroked in
-  `ColorScheme-Text` — no fill, so the popup background shows through.
-  `stroke-linecap=round` ensures the 9-patch arc/line joints are seamless.
-- The on track is a **solid accent pill** with no border.
-- The knob uses `ColorScheme-Text` so it is always visible: white in
-  dark mode (on blue track) and dark in light mode (hole effect on
-  blue track).
-- The knob is 10 px inside a 16 px handle bounding box, giving 3 px
-  transparent padding on all sides so it never touches the track edge.
+Geometry follows Plasma's `SwitchIndicator.qml`, which draws the on-pill
+1 px further right than the off-outline. The on-pill's ends (9 px wide,
+10 px tall, so slightly oval and full height) are therefore centred on
+the knob, and the off-outline's ends (8.5 × 10) sit just inside them. If the outline is as large as the pill, it shows as
+a white (dark) or black (light) rim on the left of every switched-on
+switch. Hover and pressed use one element for both states, so the accent
+ring merges into the on-pill and only highlights the off knob. There is
+no knob shadow.
 
 #### Taskbar (`widgets/tasks.svg`)
 
@@ -457,6 +475,17 @@ proportions (`check_size=20`, `progressbar_thickness=10`,
 `toolbutton_style=0`, `merge_menubar_with_toolbar=false`) and a
 cleaner SVG element set (`flatbutton`, `tbutton`, proper inactive
 text colors, fuller frame definitions).
+
+#### List and file selection
+
+Windows 11 Explorer marks selected items with a light accent tint and
+keeps the normal text colour. The dark variant does the same: the
+`itemview-pressed` / `-toggled` elements are the accent at 32 % / 24 %
+over the background (a blue-grey), with white text. The light variant
+still uses the solid accent with white text: Dolphin draws a selected
+file's name in the palette's highlighted-text colour, which is also the
+colour of selected text in editors, so a light tint with dark text needs
+a palette-level change first.
 
 #### Compositing model
 
@@ -574,6 +603,9 @@ Theme=windows-modern
 
 [kdeglobals][General]
 ColorScheme=WindowsModern{Dark,Light}
+
+[kwinrc][WindowSwitcher]
+LayoutName=org.kde.windowsmodern.alttab
 ```
 
 Each package also contains
@@ -584,6 +616,29 @@ desktop layout, this script first removes any existing panels and then
 creates the Windows Modern Panel (see the Panel layout template section
 above) with the Win11-style centered taskbar, start menu, system tray,
 clock, and show-desktop sliver.
+
+### Alt+Tab window switcher
+
+Location: `plasma/windowswitcher/org.kde.windowsmodern.alttab/` — a KWin
+TabBox layout (`KPackageStructure: KWin/WindowSwitcher`), installed to
+`~/.local/share/kwin/tabbox/` and selected via `kwinrc [TabBox] LayoutName`.
+`main.qml` only hosts the popup; all visuals live in `SwitcherView.qml`.
+
+| Element | Spec (at 100% scale) |
+|---------|----------------------|
+| Container | Theme dialog background, 12 px padding, centered on the active screen |
+| Preview height | 17% of screen height, clamped to 110–220 px |
+| Preview width | Window aspect ratio × height, ratio clamped to 0.75–2.2 |
+| Card | 6 px padding, 8 px radius, 4 px gap; rows wrap at 90% screen width and are centered |
+| Header | 30 px: 16 px app icon, 8 px gap, title (elided), close button on the right |
+| Preview corners | 4 px radius (square on the software renderer, where the shader mask cannot run) |
+| Selected | 3 px ring in the text colour (white on dark, near-black on light) + 9% text-colour fill |
+| Hover | 6% text-colour fill; close button turns `#C42B1C` on hover |
+
+Keyboard: Tab / Shift+Tab are handled by KWin; Left/Right move by one and
+wrap; Up/Down move to the nearest card in the neighbouring row and wrap.
+Middle-click closes a window. Colours come from `Kirigami.Theme`, so one
+package serves both variants.
 
 ### Session Lock Screen (Meta+L)
 

@@ -29,6 +29,9 @@ function pick(preferred, fallback) {
     return knownWidgetTypes.indexOf(preferred) >= 0 ? preferred : fallback;
 }
 
+// The widget section of this function is shared with the "Add Panel"
+// template (plasma/layout-templates/org.kde.windowsmodern.panel) and must
+// stay identical — verify-all.sh checks this.
 function createWindowsModernPanel(screenId) {
     var panel = new Panel;
 
@@ -71,9 +74,10 @@ function createWindowsModernPanel(screenId) {
     start.currentConfigGroup = new Array("General");
     start.writeConfig("icon", "start-here");
 
-    // 3. Icon-only task manager — custom Win11 style, or fall back to stock.
+    // 3. Icon-only task manager. The Windows Modern fork deliberately reuses
+    //    the stock plugin ID, so this loads the fork when it is installed and
+    //    the stock icons-only task manager otherwise — no separate fallback.
     var tasks = panel.addWidget("org.kde.plasma.icontasks");
-    if (!tasks) { tasks = panel.addWidget("org.kde.plasma.icontasks"); }
     tasks.currentConfigGroup = new Array("General");
     tasks.writeConfig("launchers", "");
     tasks.writeConfig("showOnlyCurrentScreen", "false");
@@ -89,12 +93,10 @@ function createWindowsModernPanel(screenId) {
     var tray = panel.addWidget(pick("org.kde.windowsmodern.systemtray", "org.kde.plasma.systemtray"));
 
     // 6. Digital clock — Win11 puts the clock at the far right, with the date
-    //    stacked below the time. Use the custom Windows Modern digital clock
-    //    so the compact view respects padding and matches the icon-task icon
-    //    height. Fall back to the upstream clock if the custom applet is not
-    //    installed.
-    //    autoFontAndSize = true lets the clock follow the system font while
-    //    compactPadding still keeps vertical padding around the text.
+    //    stacked below the time, both in the normal UI font size. Use the
+    //    custom Windows Modern digital clock; fall back to the upstream clock
+    //    if the custom applet is not installed.
+    //    autoFontAndSize = true lets the clock follow the system font.
     //    use24hFormat = 1 lets the clock follow the user's locale/region
     //    defaults instead of forcing 12- or 24-hour time.
     //    dateDisplayFormat = 2 forces the date below the time (BelowTime).
@@ -105,7 +107,6 @@ function createWindowsModernPanel(screenId) {
     clock.writeConfig("dateDisplayFormat", "2");
     clock.writeConfig("showSeconds", "0");
     clock.writeConfig("use24hFormat", "1");
-    clock.writeConfig("compactPadding", "0.18");
     clock.writeConfig("expandedWidth", "320");
 
     // 7. Show Desktop — custom Win11-style thin sliver, or fall back to stock.

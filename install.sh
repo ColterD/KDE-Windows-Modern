@@ -14,6 +14,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck source=scripts/install-lib.sh
 source "$SCRIPT_DIR/scripts/install-lib.sh"
 
 # ── Install component by name (non-fatal on failure) ────────────────
@@ -52,6 +53,7 @@ install_everything() {
     export WM_BATCH=1
 
     # ── Phase A: atomic pieces ──
+    install_component deps
     info "[1/3] Installing themes, icons, and applets..."
     install_component themes
     install_component icons
@@ -61,6 +63,7 @@ install_everything() {
     install_component icontasks
     install_component digitalclock
     install_component sessionlock
+    install_component alttab
 
     # ── Phase B: compose (layout references applets; lookfeel references everything) ──
     info "[2/3] Composing layout and global themes..."
@@ -72,12 +75,20 @@ install_everything() {
     # ── Phase C: apply once ──
     info "[3/3] Applying theme (${variant})..."
     post_kwin_borders
+    post_kwin_effects
     post_kwin_per_monitor_alt_tab
+    post_kwin_alt_tab_switcher
     apply_lookandfeel "$theme" reset
     apply_kvantum_engine "$variant"
     # Let the layout script finish writing panels before restarting Plasma.
     sleep 1
     restart_plasmashell
+
+    # ── Phase D: behaviour (needs the new panel and a running shell) ──
+    info "Windows shortcuts and apps..."
+    install_component shortcuts
+    install_component apps
+    install_component fonts
 
     echo ""
     info "Done! For the authentic Win11 look, enable floating:"
@@ -109,7 +120,7 @@ menu() {
     echo -e "${BOLD}${BLUE}╚══════════════════════════════════════════╝${RESET}"
     echo ""
     echo -e "  ${BOLD}Appearance${RESET}"
-    echo -e "    ${BOLD}1${RESET})  Everything (themes + icons + applets + layout)"
+    echo -e "    ${BOLD}1${RESET})  Everything (themes + icons + applets + layout + shortcuts + apps)"
     echo -e "    ${BOLD}2${RESET})  Themes (Aurorae, colors, Kvantum, Plasma, wallpapers)"
     echo -e "    ${BOLD}3${RESET})  Icon pack"
     echo -e "    ${BOLD}4${RESET})  Global themes (look-and-feel)"
@@ -126,6 +137,13 @@ menu() {
     echo -e "  ${BOLD}Session${RESET}"
     echo -e "    ${BOLD}12${RESET}) Session lock screen (Meta+L)"
     echo -e "    ${BOLD}13${RESET}) Boot greeter / login screen (PLM — C++ build + system install)"
+    echo -e "    ${BOLD}14${RESET}) Alt+Tab window switcher (Windows 11 style)"
+    echo ""
+    echo -e "  ${BOLD}Behaviour & setup${RESET}"
+    echo -e "    ${BOLD}15${RESET}) Windows keyboard shortcuts (Win+Up/Down, Win+Tab, Win+R, Win+A...)"
+    echo -e "    ${BOLD}16${RESET}) Apps: Haruna, KWrite, Mission Center, Snipping Tool behaviour"
+    echo -e "    ${BOLD}17${RESET}) Dependencies only (Kvantum, Flatpak, C++ build tools)"
+    echo -e "    ${BOLD}18${RESET}) Fonts: Segoe UI or Selawik, Cascadia Mono"
     echo ""
     echo -e "    ${BOLD}0${RESET})  Quit"
     echo ""
@@ -152,6 +170,11 @@ menu() {
             echo ""
             echo "Now installing system-wide (needs sudo)..."
             sudo bash "$SCRIPT_DIR/scripts/install-greeter-live.sh" || err "System greeter install failed or was cancelled." ;;
+        14) install_component alttab ;;
+        15) install_component shortcuts ;;
+        16) install_component apps ;;
+        17) install_component deps ;;
+        18) install_component fonts ;;
         0)  echo "Nothing installed."; exit 0 ;;
         *)  err "Invalid choice."; exit 1 ;;
     esac
@@ -191,9 +214,14 @@ case "${1:-menu}" in
         echo "    digitalclock   Digital Clock (QML)"
         echo "    applets        All five applets"
         echo "    sessionlock    Session lock screen (Meta+L)"
+        echo "    alttab         Windows 11-style Alt+Tab window switcher"
+        echo "    shortcuts      Windows keyboard shortcuts (backs up and replaces some KDE keys)"
+        echo "    apps           Haruna, KWrite, Mission Center; video default; Snipping Tool behaviour"
+        echo "    deps           Kvantum, Flatpak and the C++ applets' build dependencies"
+        echo "    fonts          Segoe UI (or open Selawik if missing) and Cascadia Mono"
         echo "    greeter        Boot greeter / login screen (PLM build, user test)"
         echo ""
-        echo "  Note: 'all' includes the session lock screen. The boot greeter is"
+        echo "  Note: 'all' includes the session lock screen, Alt+Tab switcher, shortcuts and apps. The boot greeter is"
         echo "  opt-in (it replaces the system login manager) — use 'greeter'."
         echo ""
         exit 0

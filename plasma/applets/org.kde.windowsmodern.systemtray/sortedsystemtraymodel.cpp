@@ -5,6 +5,7 @@
 #include "sortedsystemtraymodel.h"
 #include "debug.h"
 #include "systemtraymodel.h"
+#include "windowstray.h"
 #include <QList>
 
 static const QList<QString> s_categoryOrder = {
@@ -36,6 +37,9 @@ bool SortedSystemTrayModel::lessThanSystemTray(const QModelIndex &left, const QM
     QVariant rid = right.data(static_cast<int>(BaseModel::BaseRole::ItemId));
     if (rid.toString() == QLatin1String("org.kde.plasma.notifications")) return false;
     if (lid.toString() == QLatin1String("org.kde.plasma.notifications")) return true;
+    const int ltail = WindowsTray::tail().indexOf(lid.toString());
+    const int rtail = WindowsTray::tail().indexOf(rid.toString());
+    if (ltail != -1 || rtail != -1) return ltail < rtail; // -1 (not in the tail) sorts first
     int cmp = compareCategoriesOrderly(left, right);
     return cmp == 0 ? QSortFilterProxyModel::lessThan(left, right) : cmp < 0;
 }

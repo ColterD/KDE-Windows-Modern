@@ -21,4 +21,7 @@ theme=__aurorae__svg__windows-modern-light-aurorae
 cursorTheme=Win11OS-moyash
 
 [ksplashrc][KSplash]
-Theme=none
+Theme=None
+
+[kwinrc][WindowSwitcher]
+LayoutName=org.kde.windowsmodern.alttab

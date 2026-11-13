@@ -91,6 +91,21 @@ PlasmaCore.ToolTipArea {
             }
         }
         onWheel: wheel => {
+            // Only icons in the panel act on the wheel (scrolling over volume
+            // or brightness adjusts it). In the flyout the cards are just
+            // content: a touchpad scroll over "Brightness & Color" must not
+            // change the brightness. Passing the event on would hand it to
+            // the applet's own icon underneath (which does), so it is taken
+            // here and scrolls the grid instead.
+            if (abstractItem.inHiddenLayout) {
+                const view = root.hiddenLayout;
+                const dy = wheel.pixelDelta.y !== 0 ? wheel.pixelDelta.y
+                                                    : wheel.angleDelta.y / 120 * view.cellHeight / 2;
+                const bottom = view.originY + view.contentHeight - view.height;
+                view.contentY = Math.max(view.originY, Math.min(view.contentY - dy, bottom));
+                wheel.accepted = true;
+                return;
+            }
             abstractItem.wheel(wheel);
             //Don't accept the event in order to make the scrolling by mouse wheel working
             //for the parent scrollview this icon is in.
@@ -98,19 +113,22 @@ PlasmaCore.ToolTipArea {
         }
     }
 
-    // Win11-styled card background for hidden layout
+    // Behind the chevron the items open pages, so they are drawn as plain
+    // launchers (icon over name, as Windows 11's overflow draws icons), not
+    // as tiles like the Quick Settings toggles below: a background shows
+    // only on hover and press.
     Rectangle {
         visible: abstractItem.inHiddenLayout
         anchors.fill: parent
         radius: 4
-        border.width: 1
+        border.width: mouseArea.containsMouse ? 1 : 0
         border.color: Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.08)
         color: {
             if (mouseArea.containsPress)
                 return Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.10);
             if (mouseArea.containsMouse)
                 return Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.06);
-            return Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g, Kirigami.Theme.textColor.b, 0.04);
+            return "transparent";
         }
         Behavior on color { ColorAnimation { duration: Kirigami.Units.shortDuration } }
         z: -1
@@ -118,8 +136,18 @@ PlasmaCore.ToolTipArea {
 
     ColumnLayout {
         anchors.fill: abstractItem
-        anchors.margins: abstractItem.inHiddenLayout ? 10 : 0
+        // A flyout cell is ~75 px tall: 6 + 28 (icon) + 4 + 2 lines of name
+        // (26) + 6 fits; larger margins or icon push two-line names out.
+        anchors.leftMargin: abstractItem.inHiddenLayout ? 8 : 0
+        anchors.rightMargin: abstractItem.inHiddenLayout ? 8 : 0
+        anchors.topMargin: abstractItem.inHiddenLayout ? 6 : 0
+        anchors.bottomMargin: abstractItem.inHiddenLayout ? 6 : 0
         spacing: 0
+
+        Item { // centers icon and name in a flyout cell
+            Layout.fillHeight: true
+            visible: abstractItem.inHiddenLayout
+        }
 
         FocusScope {
             id: iconContainer
@@ -156,17 +184,15 @@ PlasmaCore.ToolTipArea {
 
             property alias container: abstractItem
             property alias inVisibleLayout: abstractItem.inVisibleLayout
-            readonly property int size: abstractItem.inVisibleLayout ? root.itemSize : Kirigami.Units.iconSizes.smallMedium
+            readonly property int size: abstractItem.inVisibleLayout ? root.itemSize : 28
 
-            Layout.alignment: abstractItem.inHiddenLayout
-                ? Qt.AlignLeft | Qt.AlignTop
-                : Qt.AlignHCenter | Qt.AlignVCenter
+            Layout.alignment: Qt.AlignHCenter | Qt.AlignVCenter
             implicitWidth: root.vertical && abstractItem.inVisibleLayout ? abstractItem.width : size
             implicitHeight: !root.vertical && abstractItem.inVisibleLayout ? abstractItem.height : size
         }
 
         Item {
-            Layout.fillHeight: true
+            Layout.preferredHeight: 4
             visible: abstractItem.inHiddenLayout
         }
 
@@ -178,8 +204,8 @@ PlasmaCore.ToolTipArea {
 
             visible: abstractItem.inHiddenLayout
 
-            horizontalAlignment: Text.AlignLeft
-            verticalAlignment: Text.AlignBottom
+            horizontalAlignment: Text.AlignHCenter
+            verticalAlignment: Text.AlignTop
             elide: Text.ElideRight
             textFormat: Text.PlainText
             wrapMode: Text.Wrap
@@ -193,6 +219,11 @@ PlasmaCore.ToolTipArea {
                     easing.type: Easing.InOutQuad
                 }
             }
+        }
+
+        Item {
+            Layout.fillHeight: true
+            visible: abstractItem.inHiddenLayout
         }
     }
 }

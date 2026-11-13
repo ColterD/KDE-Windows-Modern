@@ -1,0 +1,91 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  health-check:
+    name: Repository health check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install shellcheck
+        run: sudo apt-get update && sudo apt-get install -y shellcheck
+      # Same gate scripts/release.sh enforces: required files, light/dark
+      # parity, layout drift, metadata, bash -n and shellcheck.
+      - name: verify-all.sh
+        run: ./verify-all.sh
+
+  build-applets:
+    name: Build C++ applets (Fedora ${{ matrix.fedora }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # Fedora releases track Plasma closely; bump when a new one ships.
+        fedora: ["44", "45"]
+    container: fedora:${{ matrix.fedora }}
+    steps:
+      # git first: without it actions/checkout downloads GitHub's tarball,
+      # which honours .gitattributes export-ignore and so has no tests/.
+      - name: Install git
+        run: dnf install -y --setopt=install_weak_deps=False git-core
+      - uses: actions/checkout@v4
+      - name: Install build dependencies
+        run: |
+          dnf install -y --setopt=install_weak_deps=False \
+            gcc-c++ cmake extra-cmake-modules findutils \
+            qt6-qtbase-devel qt6-qtbase-private-devel qt6-qtdeclarative-devel \
+            kf6-kpackage-devel kf6-kconfig-devel kf6-ki18n-devel kf6-kcoreaddons-devel \
+            kf6-kwindowsystem-devel kf6-kio-devel kf6-kiconthemes-devel \
+            kf6-kitemmodels-devel kf6-kservice-devel kf6-kxmlgui-devel \
+            kf6-kjobwidgets-devel kf6-kcmutils-devel kf6-knotifications-devel \
+            plasma-activities-devel plasma-activities-stats-devel \
+            libplasma-devel plasma-workspace-devel libksysguard-devel \
+            kf6-kirigami python3
+      - name: Build and link-check both applets
+        run: ./scripts/ci-build.sh "$RUNNER_TEMP/build"
+      - name: QML tests
+        run: QT_QPA_PLATFORM=offscreen tests/run-qml-tests.sh
+      # Prebuilt plugins for installs without a compiler: keyed by distro,
+      # Plasma and Qt version (scripts/install-lib.sh picks the match).
+      - name: Package plugins
+        run: ./scripts/package-plugins.sh "$RUNNER_TEMP/build" "$RUNNER_TEMP/plugins"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: plugins-fedora${{ matrix.fedora }}
+          path: ${{ runner.temp }}/plugins/
+
+  # On a release tag, attach the prebuilt plugins (and one SHA256SUMS) to
+  # the release that scripts/release.sh created.
+  release-plugins:
+    name: Attach prebuilt plugins to the release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build-applets
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: plugins-*
+          path: plugins
+      - name: Merge checksums and upload
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir out
+          cat plugins/*/SHA256SUMS > out/SHA256SUMS
+          cp plugins/*/*.tar.gz out/
+          # release.sh pushes the tag, then creates the release: wait for it.
+          for _ in $(seq 30); do
+            gh release view "${GITHUB_REF_NAME}" --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1 && break
+            sleep 20
+          done
+          gh release upload "${GITHUB_REF_NAME}" out/* --clobber --repo "${GITHUB_REPOSITORY}"
